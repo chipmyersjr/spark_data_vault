@@ -1,4 +1,4 @@
-package com.sparkTutorial.rdd;
+package com.dataVault.example;
 
 
 import org.apache.log4j.Level;
