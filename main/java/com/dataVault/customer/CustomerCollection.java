@@ -12,6 +12,7 @@ public class CustomerCollection {
     This class processes the newly added customer collection changes events from a mongodb collection called customer
 
     1. adds newly found customer ids to customer hub
+    2. adds new records to the satellite table
     * */
     public static void main(String[] args) {
 
@@ -26,5 +27,11 @@ public class CustomerCollection {
         Utils.updateHubTable(session, distinct_customers, "hub_customer", "_id"
                 , "customer_internal_application_id", "app_customer_collection"
                 ,  "customer_hash_key");
+
+        Dataset<Row> sat_customer_collection_ds = customers.filter("_id is not null")
+                .drop("confirmation_token", "confirmation_token_expires_at", "password_hash");
+
+        Utils.updateSatTable(session, sat_customer_collection_ds, "_id", "customer_hash_key"
+                , "sat_customer_collection", "app_customer_collection");
     }
 }

@@ -61,6 +61,21 @@ public class Utils {
         hub_data.repartition(1).write().mode("overwrite").parquet(hub_dir + "/" + date);
     }
 
+    public static void updateSatTable(SparkSession session, Dataset<Row> ds, String idColumnName, String hashKeyColumnName
+                                       , String satelliteTableName, String recordSource){
+        String sat_dir = "out/" + satelliteTableName;
+
+        session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
+
+        Dataset<Row> satellite = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
+                .withColumn("loaded_at", current_timestamp())
+                .withColumn("record_source", lit(recordSource));
+
+        String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+
+        satellite.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+    }
+
     private static String getMd5Hash(String business_key) throws Exception {
         /*
         Returns MD5 hash for given business_key
