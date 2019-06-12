@@ -2,7 +2,7 @@
 
 
 
-# tables:
+# raw data vault:
 
 
 **hub_customer:**
