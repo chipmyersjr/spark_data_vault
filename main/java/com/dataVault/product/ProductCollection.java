@@ -13,6 +13,7 @@ public class ProductCollection {
         This class processes the newly added product collection changes events from a mongodb collection called product
 
         1. adds newly found product ids to product hub
+        2. adds new records to the satellite table
          */
 
         System.setProperty("hadoop.home.dir", "C:/hadoop");
@@ -26,5 +27,15 @@ public class ProductCollection {
         Utils.updateHubTable(session, distinct_products, "hub_product", "_id"
                 , "product_internal_application_id", "app_product_collection"
                 ,  "product_hash_key");
+
+        Dataset<Row> sat_product_collection_ds = products.filter("_id is not null");
+
+        Utils.updateSatTable(session, sat_product_collection_ds, "_id", "product_hash_key"
+                , "sat_product_collection", "app_product_collection");
+
+        Dataset<Row> check_count = session.read().parquet("out/sat_product_collection/*/*/*/*/*/*/");
+
+        System.out.println(check_count.count());
+        check_count.show();
     }
 }

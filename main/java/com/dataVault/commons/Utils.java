@@ -63,6 +63,16 @@ public class Utils {
 
     public static void updateSatTable(SparkSession session, Dataset<Row> ds, String idColumnName, String hashKeyColumnName
                                        , String satelliteTableName, String recordSource){
+        /*
+        generic function for inserting new records into a satellite table
+
+        session: SparkSession object to perform operations
+        ds: new records received to add to satellite table
+        idColumnName: column name of the key column in ds
+        hashKeyColumnName: hash key column name. will match corresponding hub or link hash
+        satelliteTableName: name of the satellite table
+        recordSource: record source field value for satellite table
+        * */
         String sat_dir = "out/" + satelliteTableName;
 
         session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
