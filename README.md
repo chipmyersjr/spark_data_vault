@@ -38,3 +38,18 @@
 * product_internal_application_id
 * record_source
 * created_at
+
+**sat_product_collection:**
+* product_hash_key
+* loaded_at
+* record_source
+* title
+* product_type
+* description
+* vendor
+* store
+* inventory
+* sale_price_in_cents
+* created_at
+* updated_at
+* deleted_at
