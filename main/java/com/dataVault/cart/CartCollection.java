@@ -22,9 +22,13 @@ public class CartCollection {
                 , "cart_internal_application_id", "app_cart_collection"
                 ,  "cart_hash_key");
 
-        Dataset<Row> check_count = session.read().parquet( "out/hub_cart/*/*/*/*/*/*/");
+        Dataset<Row> sat_cart_collection_ds = carts.filter("_id is not null")
+                .drop("customer_id");
 
-        check_count.count();
+        Utils.updateSatTable(session, sat_cart_collection_ds, "_id", "cart_hash_key"
+                , "sat_cart_collection", "app_cart_collection");
+
+        Dataset<Row> check_count = session.read().parquet( "out/hub_cart/*/*/*/*/*/*/");
         check_count.show();
     }
 }
