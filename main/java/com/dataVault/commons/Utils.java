@@ -14,7 +14,7 @@ import static org.apache.spark.sql.functions.*;
 
 public class Utils {
 
-    static final String outPath = "s3n://chip-data-vault/raw-data-vault/";
+    private static final String outPath = "out/"; //"s3n://chip-data-vault/raw-data-vault/";
 
     public static void updateHubTable(SparkSession session, Dataset<Row> newIdsDataset, String hubTableName
                                       , String idColumnName, String businessKeyColumnName, String recordSource
