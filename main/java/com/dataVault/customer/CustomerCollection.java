@@ -16,11 +16,11 @@ public class CustomerCollection {
     * */
     public static void main(String[] args) {
 
-        System.setProperty("hadoop.home.dir", "C:/hadoop");
+        //System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
-        SparkSession session = SparkSession.builder().appName("customerCollection").master("local[1]").getOrCreate();
+        SparkSession session = SparkSession.builder().appName("customerCollection").getOrCreate();
 
-        Dataset<Row> customers = session.read().json("in/customer_collection.json");
+        Dataset<Row> customers = session.read().json("s3n://chip-data-vault/in/customer_collection.json");
 
         Dataset<Row> distinct_customers = customers.select("_id").distinct().filter("_id is not null");
 

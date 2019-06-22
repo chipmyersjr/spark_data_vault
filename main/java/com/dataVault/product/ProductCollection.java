@@ -16,11 +16,11 @@ public class ProductCollection {
         2. adds new records to the satellite table
          */
 
-        System.setProperty("hadoop.home.dir", "C:/hadoop");
+        //System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
-        SparkSession session = SparkSession.builder().appName("productCollection").master("local[1]").getOrCreate();
+        SparkSession session = SparkSession.builder().appName("productCollection").getOrCreate();
 
-        Dataset<Row> products = session.read().json("in/product_collection.json");
+        Dataset<Row> products = session.read().json("s3n://chip-data-vault/in/product_collection.json");
 
         Dataset<Row> distinct_products = products.select("_id").distinct().filter("_id is not null");
 
@@ -32,10 +32,5 @@ public class ProductCollection {
 
         Utils.updateSatTable(session, sat_product_collection_ds, "_id", "product_hash_key"
                 , "sat_product_collection", "app_product_collection");
-
-        Dataset<Row> check_count = session.read().parquet("out/sat_product_collection/*/*/*/*/*/*/");
-
-        System.out.println(check_count.count());
-        check_count.show();
     }
 }

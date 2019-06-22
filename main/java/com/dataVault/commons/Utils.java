@@ -13,6 +13,9 @@ import java.util.Date;
 import static org.apache.spark.sql.functions.*;
 
 public class Utils {
+
+    static final String outPath = "s3n://chip-data-vault/raw-data-vault/";
+
     public static void updateHubTable(SparkSession session, Dataset<Row> newIdsDataset, String hubTableName
                                       , String idColumnName, String businessKeyColumnName, String recordSource
                                       , String hashKeyColumnName) {
@@ -30,7 +33,7 @@ public class Utils {
         * */
 
         Dataset<Row> ids_to_update;
-        String hub_dir = "out/" + hubTableName;
+        String hub_dir = outPath + hubTableName;
         File dir = new File(hub_dir);
 
         if (dir.exists()){
@@ -73,7 +76,7 @@ public class Utils {
         satelliteTableName: name of the satellite table
         recordSource: record source field value for satellite table
         * */
-        String sat_dir = "out/" + satelliteTableName;
+        String sat_dir = outPath + satelliteTableName;
 
         session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
 
