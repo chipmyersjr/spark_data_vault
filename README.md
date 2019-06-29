@@ -53,3 +53,26 @@
 * created_at
 * updated_at
 * deleted_at
+
+**hub_cart:**
+* cart_hash_key
+* cart_internal_application_id
+* record_source
+* created_at
+
+**sat_cart**
+* cart_hash_key
+* loaded_at
+* record_source
+* state
+* created_at
+* last_item_added_at
+* invoice_created_at
+* closed_at
+
+**link_customer_cart:**
+* customer_cart_hash_key
+* customer_hash_key
+* cart_hash_key
+* created_at
+* record_source
