@@ -28,7 +28,11 @@ public class CartCollection {
         Utils.updateSatTable(session, sat_cart_collection_ds, "_id", "cart_hash_key"
                 , "sat_cart_collection", "app_cart_collection");
 
-        Dataset<Row> check_count = session.read().parquet( "out/hub_cart/*/*/*/*/*/*/");
-        check_count.show();
+        carts.select("_id", "customer_id").filter("_id is not null").registerTempTable("distinct_carts");
+
+        Dataset<Row> linkCustomerCart = session.sql("SELECT _id AS cart_hash_key, customer_id AS customer_hash_key FROM distinct_carts");
+
+        Utils.updateLinkTable(session, "link_customer_cart", linkCustomerCart, "customer_cart_hash_key", "app_cart_collection");
+
     }
 }
