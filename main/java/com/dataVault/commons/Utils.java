@@ -4,6 +4,8 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.functions.*;
+import org.scalactic.Bool;
 
 import java.io.File;
 import java.security.MessageDigest;
@@ -81,12 +83,60 @@ public class Utils {
         session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
 
         Dataset<Row> satellite = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
-                .withColumn("loaded_at", current_timestamp())
+                .withColumn("created_at", current_timestamp())
                 .withColumn("record_source", lit(recordSource));
 
         String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
 
         satellite.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+    }
+
+    public static void updateLinkTable(SparkSession session, String linkTableName, Dataset<Row> ds, String linkHashKeyName
+                                        , String recordSource) {
+        String link_dir = outPath + linkTableName;
+        Dataset<Row> newRecords;
+
+        session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
+
+        String[] columnNames = ds.columns();
+
+        boolean first = true;
+        for (String columnName : columnNames) {
+            if (first) {
+                ds = ds.withColumn(linkHashKeyName, col(columnName));
+                first = false;
+            } else {
+                ds = ds.withColumn(linkHashKeyName, concat(col(linkHashKeyName), lit("|"), col(columnName)));
+            }
+
+            ds = ds.withColumn(columnName, callUDF("getMd5Hash", col(columnName)));
+        }
+
+        File dir = new File(link_dir);
+
+        ds = ds.withColumn(linkHashKeyName, callUDF("getMd5Hash", col(linkHashKeyName)))
+                .withColumn("created_at", current_timestamp())
+                .withColumn("record_source", lit(recordSource));
+
+        if (dir.exists()) {
+            Dataset<Row> existing = session.read().parquet(link_dir + "/*/*/*/*/*/*/");
+
+            ds.registerTempTable("new");
+
+            existing.registerTempTable("existing");
+
+            newRecords = session.sql("SELECT * " +
+                    " FROM new " +
+                    " WHERE + " + linkHashKeyName +
+                    " NOT IN (SELECT " +  linkHashKeyName + " FROM existing)");
+        } else {
+            newRecords = ds;
+        }
+
+
+        String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+
+        newRecords.repartition(1).write().mode("overwrite").parquet(link_dir + "/" + date);
     }
 
     private static String getMd5Hash(String business_key) throws Exception {
