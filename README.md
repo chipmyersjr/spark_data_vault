@@ -17,7 +17,6 @@
 * record_source
 * customer_internal_application_id
 * currency
-* email
 * first_name
 * last_name
 * total_spent
