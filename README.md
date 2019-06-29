@@ -24,7 +24,6 @@
 * last_cart_activity_at
 * last_cart_created_at
 * log_out_expires_at
-* emails
 * confirmed_on
 * confirmation_token_expires_at
 * last_seen_date
