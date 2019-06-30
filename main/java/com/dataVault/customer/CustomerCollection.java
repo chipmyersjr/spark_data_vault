@@ -35,12 +35,23 @@ public class CustomerCollection {
                 , "sat_customer_collection", "app_customer_collection");
 
         customers.filter("_id is not null").registerTempTable("customers");
-        Dataset<Row> emails = session.sql("SELECT emails_e.* FROM customers LATERAL VIEW explode(emails) as emails_e");
+        Dataset<Row> emails = session.sql("SELECT _id AS customer_id, emails_e.* FROM customers LATERAL VIEW explode(emails) as emails_e");
+        emails.cache();
+        emails.registerTempTable("emails");
 
         Dataset<Row> distinct_email_ids = emails.select("_id").distinct();
 
         Utils.updateHubTable(session, distinct_email_ids, "hub_email", "_id"
                 , "email_internal_application_id", "app_customer_collection"
                 ,  "email_hash_key");
+
+        Dataset<Row> sat_email_ds = emails.drop("customer_id");
+
+        Utils.updateSatTable(session, sat_email_ds, "_id", "email_hash_key"
+                , "sat_email", "app_customer_collection");
+
+        Dataset<Row> link_customer_email_ds = session.sql("SELECT DISTINCT customer_id AS customer_hash_key, _id AS email_hash_key FROM emails");
+
+        Utils.updateLinkTable(session, "link_customer_email", link_customer_email_ds, "customer_email_hash_key", "app_customer_collection");
     }
 }
