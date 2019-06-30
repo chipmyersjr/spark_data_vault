@@ -93,6 +93,16 @@ public class Utils {
 
     public static void updateLinkTable(SparkSession session, String linkTableName, Dataset<Row> ds, String linkHashKeyName
                                         , String recordSource) {
+        /*
+        generic function for inserting new rows into a link table. implements hash key generation for link tables as hash of combination
+        of business keys then converts business keys to the hash value
+
+        session: SparkSession object to perform operations
+        linkTableName: name to be given to the link table. column names should be given as you want them to appear in the link table
+        ds: new records to be added to the link table
+        linkHashKeyName: name to be given to the hash key of the link table
+        recordSource: record source field value for link table
+        * */
         String link_dir = outPath + linkTableName;
         Dataset<Row> newRecords;
 
@@ -115,7 +125,7 @@ public class Utils {
         File dir = new File(link_dir);
 
         ds = ds.withColumn(linkHashKeyName, callUDF("getMd5Hash", col(linkHashKeyName)))
-                .withColumn("created_at", current_timestamp())
+                .withColumn("loaded_at", current_timestamp())
                 .withColumn("record_source", lit(recordSource));
 
         if (dir.exists()) {
