@@ -74,3 +74,26 @@
 * cart_hash_key
 * created_at
 * record_source
+
+**hub_email:**
+* email_hash_key
+* loaded_at
+* record_source
+* email_internal_application_id
+
+**sat_email:**
+* email_hash_key
+* loaded_at
+* record_source
+* email
+* is_primary
+* created_at
+* updated_at
+* deleted_at
+
+**link_customer_email:**
+* customer_email_hash_key
+* loaded_at
+* record_source
+* customer_hash_key
+* email_hash_key
