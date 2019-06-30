@@ -125,7 +125,7 @@ public class Utils {
         File dir = new File(link_dir);
 
         ds = ds.withColumn(linkHashKeyName, callUDF("getMd5Hash", col(linkHashKeyName)))
-                .withColumn("created_at", current_timestamp())
+                .withColumn("loaded_at", current_timestamp())
                 .withColumn("record_source", lit(recordSource));
 
         if (dir.exists()) {
