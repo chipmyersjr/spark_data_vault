@@ -33,9 +33,5 @@ public class ProductCollection {
         Utils.updateSatTable(session, sat_product_collection_ds, "_id", "product_hash_key"
                 , "sat_product_collection", "app_product_collection");
 
-        Dataset<Row> check_count = session.read().parquet( "out/sat_product_collection/*/*/*/*/*/*/");
-        check_count.show(50);
-        System.out.println(check_count.count());
-
     }
 }
