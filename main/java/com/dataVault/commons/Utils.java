@@ -4,12 +4,11 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.functions.*;
-import org.scalactic.Bool;
 
 import java.io.File;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 import static org.apache.spark.sql.functions.*;
@@ -70,6 +69,7 @@ public class Utils {
                                        , String satelliteTableName, String recordSource){
         /*
         generic function for inserting new records into a satellite table
+        implements hash_diff column and only adds new history records if the hash_diff has changed from the most recent record
 
         session: SparkSession object to perform operations
         ds: new records received to add to satellite table
@@ -79,16 +79,60 @@ public class Utils {
         recordSource: record source field value for satellite table
         * */
         String sat_dir = outPath + satelliteTableName;
+        Dataset<Row> recordsForUpdate;
+
+        boolean first = true;
+        String hashDiffColumnName = "hash_diff";
+        String [] columnNames = ds.columns();
+        Arrays.sort(columnNames);
+
+        for (String columnName : columnNames) {
+            if (first) {
+                ds = ds.withColumn(hashDiffColumnName, col(columnName));
+                first = false;
+            } else {
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), col(columnName)));
+            }
+        }
 
         session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
 
-        Dataset<Row> satellite = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
-                .withColumn("created_at", current_timestamp())
+        ds = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
+                .withColumn("loaded_at", current_timestamp())
                 .withColumn("record_source", lit(recordSource));
 
-        String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+        File dir = new File(sat_dir);
 
-        satellite.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+        if (dir.exists()){
+            session.read().parquet(sat_dir + "/*/*/*/*/*/*/").registerTempTable("satellite");
+
+            String query_template = "SELECT %s AS hash_key, %s AS check_hash_diff FROM " +
+                                    "(SELECT %s, %s, ROW_NUMBER() OVER(PARTITION BY %s ORDER BY loaded_at DESC) AS row_num " +
+                                    "FROM satellite) a " +
+                                    "WHERE a.row_num = 1";
+            String query = String.format(query_template, hashKeyColumnName, hashDiffColumnName, hashKeyColumnName, hashDiffColumnName, hashKeyColumnName);
+
+            session.sql(query).registerTempTable("existing");
+
+            ds.registerTempTable("new");
+
+
+            query_template = "SELECT * " +
+                             "FROM new " +
+                             "LEFT JOIN existing ON hash_key = %s " +
+                             "WHERE check_hash_diff IS NULL OR check_hash_diff <> %s";
+            query = String.format(query_template, hashKeyColumnName, hashDiffColumnName);
+
+            recordsForUpdate = session.sql(query).drop("hash_key", "check_hash_diff");
+        } else {
+            recordsForUpdate = ds;
+        }
+
+        if (recordsForUpdate.count() > 0) {
+            String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+
+            recordsForUpdate.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+        }
     }
 
     public static void updateLinkTable(SparkSession session, String linkTableName, Dataset<Row> ds, String linkHashKeyName
