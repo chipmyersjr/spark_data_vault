@@ -1,5 +1,6 @@
 package com.dataVault.commons;
 
+import org.apache.commons.lang.ObjectUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -192,6 +193,53 @@ public class Utils {
 
         newRecords.repartition(1).write().mode("overwrite").parquet(link_dir + "/" + date);
     }
+
+    public static void refreshPIT(SparkSession session, String[] satelliteNames, String hashKeyColumnName, String pitTableName) {
+        /*
+        Truncate and load style implementation of a point in time table.
+
+        session: SparkSession object to perform operations
+        satelliteNames: array of satellite table names to include
+        hashKeyColumnName: name of the hash key used in the satellite tables
+        pitTableName: table name to be given to the created point in time table
+        * */
+
+        session.read().parquet( "out/" + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
+        Dataset<Row> loadDates = session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + satelliteNames[0]);
+
+        StringBuilder selectClause = new StringBuilder("SELECT ");
+        StringBuilder fromClause = new StringBuilder(" FROM load_dates l");
+
+        selectClause.append("l.").append(hashKeyColumnName).append(", l.loaded_at");
+
+        boolean first = true;
+        int counter = 1;
+        String alias;
+        String satHaskCol;
+        String lHashCol;
+        for (String name : satelliteNames) {
+            alias = "s" + counter;
+            satHaskCol = alias + "." + hashKeyColumnName;
+            lHashCol = "l." + hashKeyColumnName;
+            fromClause.append(" LEFT JOIN ").append(name).append(" ").append(alias).append(" ON ").append(satHaskCol).append(" = ").append(lHashCol);
+
+            fromClause.append(" AND ").append("l.loaded_at = ").append(alias).append(".loaded_at ");
+            selectClause.append(", ").append(" MAX(").append(alias).append(".loaded_at) ");
+            selectClause.append(" OVER (PARTITION BY ").append(lHashCol).append(" ORDER BY l.loaded_at) ").append(name).append("_loaded_at");
+
+            counter += 1;
+            if (first) {
+                first = false;
+                continue;
+            }
+            session.read().parquet( "out/" + name + "/*/*/*/*/*/*/").registerTempTable(name);
+            loadDates = loadDates.union(session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + name));
+        }
+
+        loadDates.registerTempTable("load_dates");
+        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet("out/" + pitTableName + "/");
+    }
+
 
     private static String getMd5Hash(String business_key) throws Exception {
         /*
