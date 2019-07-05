@@ -1,15 +1,15 @@
 package com.dataVault.commons;
 
+import org.apache.commons.lang.ObjectUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.functions.*;
-import org.scalactic.Bool;
 
 import java.io.File;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 import static org.apache.spark.sql.functions.*;
@@ -70,6 +70,7 @@ public class Utils {
                                        , String satelliteTableName, String recordSource){
         /*
         generic function for inserting new records into a satellite table
+        implements hash_diff column and only adds new history records if the hash_diff has changed from the most recent record
 
         session: SparkSession object to perform operations
         ds: new records received to add to satellite table
@@ -79,16 +80,60 @@ public class Utils {
         recordSource: record source field value for satellite table
         * */
         String sat_dir = outPath + satelliteTableName;
+        Dataset<Row> recordsForUpdate;
+
+        boolean first = true;
+        String hashDiffColumnName = "hash_diff";
+        String [] columnNames = ds.columns();
+        Arrays.sort(columnNames);
+
+        for (String columnName : columnNames) {
+            if (first) {
+                ds = ds.withColumn(hashDiffColumnName, col(columnName));
+                first = false;
+            } else {
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), col(columnName)));
+            }
+        }
 
         session.udf().register("getMd5Hash", (String x) -> getMd5Hash(x), DataTypes.StringType);
 
-        Dataset<Row> satellite = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
-                .withColumn("created_at", current_timestamp())
+        ds = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
+                .withColumn("loaded_at", current_timestamp())
                 .withColumn("record_source", lit(recordSource));
 
-        String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+        File dir = new File(sat_dir);
 
-        satellite.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+        if (dir.exists()){
+            session.read().parquet(sat_dir + "/*/*/*/*/*/*/").registerTempTable("satellite");
+
+            String query_template = "SELECT %s AS hash_key, %s AS check_hash_diff FROM " +
+                                    "(SELECT %s, %s, ROW_NUMBER() OVER(PARTITION BY %s ORDER BY loaded_at DESC) AS row_num " +
+                                    "FROM satellite) a " +
+                                    "WHERE a.row_num = 1";
+            String query = String.format(query_template, hashKeyColumnName, hashDiffColumnName, hashKeyColumnName, hashDiffColumnName, hashKeyColumnName);
+
+            session.sql(query).registerTempTable("existing");
+
+            ds.registerTempTable("new");
+
+
+            query_template = "SELECT * " +
+                             "FROM new " +
+                             "LEFT JOIN existing ON hash_key = %s " +
+                             "WHERE check_hash_diff IS NULL OR check_hash_diff <> %s";
+            query = String.format(query_template, hashKeyColumnName, hashDiffColumnName);
+
+            recordsForUpdate = session.sql(query).drop("hash_key", "check_hash_diff");
+        } else {
+            recordsForUpdate = ds;
+        }
+
+        if (recordsForUpdate.count() > 0) {
+            String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
+
+            recordsForUpdate.repartition(1).write().mode("overwrite").parquet(sat_dir + "/" + date);
+        }
     }
 
     public static void updateLinkTable(SparkSession session, String linkTableName, Dataset<Row> ds, String linkHashKeyName
@@ -148,6 +193,53 @@ public class Utils {
 
         newRecords.repartition(1).write().mode("overwrite").parquet(link_dir + "/" + date);
     }
+
+    public static void refreshPIT(SparkSession session, String[] satelliteNames, String hashKeyColumnName, String pitTableName) {
+        /*
+        Truncate and load style implementation of a point in time table.
+
+        session: SparkSession object to perform operations
+        satelliteNames: array of satellite table names to include
+        hashKeyColumnName: name of the hash key used in the satellite tables
+        pitTableName: table name to be given to the created point in time table
+        * */
+
+        session.read().parquet( "out/" + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
+        Dataset<Row> loadDates = session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + satelliteNames[0]);
+
+        StringBuilder selectClause = new StringBuilder("SELECT ");
+        StringBuilder fromClause = new StringBuilder(" FROM load_dates l");
+
+        selectClause.append("l.").append(hashKeyColumnName).append(", l.loaded_at");
+
+        boolean first = true;
+        int counter = 1;
+        String alias;
+        String satHaskCol;
+        String lHashCol;
+        for (String name : satelliteNames) {
+            alias = "s" + counter;
+            satHaskCol = alias + "." + hashKeyColumnName;
+            lHashCol = "l." + hashKeyColumnName;
+            fromClause.append(" LEFT JOIN ").append(name).append(" ").append(alias).append(" ON ").append(satHaskCol).append(" = ").append(lHashCol);
+
+            fromClause.append(" AND ").append("l.loaded_at = ").append(alias).append(".loaded_at ");
+            selectClause.append(", ").append(" MAX(").append(alias).append(".loaded_at) ");
+            selectClause.append(" OVER (PARTITION BY ").append(lHashCol).append(" ORDER BY l.loaded_at) ").append(name).append("_loaded_at");
+
+            counter += 1;
+            if (first) {
+                first = false;
+                continue;
+            }
+            session.read().parquet( "out/" + name + "/*/*/*/*/*/*/").registerTempTable(name);
+            loadDates = loadDates.union(session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + name));
+        }
+
+        loadDates.registerTempTable("load_dates");
+        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet("out/" + pitTableName + "/");
+    }
+
 
     private static String getMd5Hash(String business_key) throws Exception {
         /*

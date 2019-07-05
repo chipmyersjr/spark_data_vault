@@ -13,6 +13,9 @@ public class CustomerCollection {
 
     1. adds newly found customer ids to customer hub
     2. adds new records to the satellite table
+    3. creates new emails to the email hub
+    4. adds new records to the email satellite table
+    5. adds records to the customer email link
     * */
     public static void main(String[] args) {
 
@@ -29,7 +32,7 @@ public class CustomerCollection {
                 ,  "customer_hash_key");
 
         Dataset<Row> sat_customer_collection_ds = customers.filter("_id is not null")
-                .drop("confirmation_token", "confirmation_token_expires_at", "password_hash", "emails");
+                .drop("confirmation_token", "confirmation_token_expires_at", "password_hash", "emails", "_corrupt_record");
 
         Utils.updateSatTable(session, sat_customer_collection_ds, "_id", "customer_hash_key"
                 , "sat_customer_collection", "app_customer_collection");
