@@ -33,7 +33,13 @@ public class CustomerBusinessVault {
 
         Dataset<Row> sat_customer_primary_email_ds = session.sql(query);
 
+        sat_customer_primary_email_ds.show(100);
+
         Utils.updateSatTable(session, sat_customer_primary_email_ds, "customer_internal_application_id", "customer_hash_key"
                 , "sat_customer_primary_email", "sat_email");
+
+        String[] satelliteNames = new String[] {"sat_customer_collection", "sat_customer_primary_email"};
+
+        Utils.refreshPIT(session, satelliteNames, "customer_hash_key", "pit_customer");
     }
 }
