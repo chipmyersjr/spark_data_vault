@@ -97,3 +97,20 @@
 * record_source
 * customer_hash_key
 * email_hash_key
+
+
+
+# business data vault:
+
+**sat_customer_primary_email:**
+(implements business rule that all customer have one primary email at a given time)
+* customer_hash_key
+* loaded_at
+* record_source
+* primary_email
+
+**sat_customer_pit:**
+* customer_hash_key
+* loaded_at
+* sat_customer_collection_loaded_at
+* sat_customer_primary_email_loaded_at
