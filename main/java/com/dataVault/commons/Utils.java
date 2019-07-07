@@ -88,10 +88,10 @@ public class Utils {
 
         for (String columnName : columnNames) {
             if (first) {
-                ds = ds.withColumn(hashDiffColumnName, col(columnName));
+                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName), lit(" ")));
                 first = false;
             } else {
-                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), col(columnName)));
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName), lit(" "))));
             }
         }
 
