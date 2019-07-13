@@ -78,6 +78,7 @@ public class Utils {
         satelliteTableName: name of the satellite table
         recordSource: record source field value for satellite table
         * */
+
         String sat_dir = outPath + satelliteTableName;
         Dataset<Row> recordsForUpdate;
 
