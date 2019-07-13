@@ -1,6 +1,5 @@
 package com.dataVault.commons;
 
-import org.apache.commons.lang.ObjectUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -79,6 +78,7 @@ public class Utils {
         satelliteTableName: name of the satellite table
         recordSource: record source field value for satellite table
         * */
+
         String sat_dir = outPath + satelliteTableName;
         Dataset<Row> recordsForUpdate;
 
@@ -89,10 +89,10 @@ public class Utils {
 
         for (String columnName : columnNames) {
             if (first) {
-                ds = ds.withColumn(hashDiffColumnName, col(columnName));
+                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName), lit(" ")));
                 first = false;
             } else {
-                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), col(columnName)));
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName), lit(" "))));
             }
         }
 
@@ -192,6 +192,36 @@ public class Utils {
         String date = new SimpleDateFormat("yyyy/MM/dd/HH/mm/ss").format(new Date());
 
         newRecords.repartition(1).write().mode("overwrite").parquet(link_dir + "/" + date);
+    }
+
+    public static void updateSatTable(SparkSession session, Dataset<Row> ds, String idColumnName, String hashKeyColumnName
+            , String satelliteTableName, String recordSource, String[] linkTableIdColumnNames) {
+        /*
+        this is an overloaded version of updateSatTable created to support the building of satellite tables for link tables.
+        you can now pass an array of business key names to be used for the satellite hash key instead of just  single column.
+        the function creates a column that is the concatenation of the id columns and then passes the arguments to the standard
+        updateSatTable function
+
+        session: SparkSession object to perform operations
+        ds: new records received to add to satellite table
+        idColumnName: this will be the column name given to the concatenation of link table ids
+        hashKeyColumnName: hash key column name. will match corresponding hub or link hash
+        satelliteTableName: name of the satellite table
+        recordSource: record source field value for satellite table
+        * */
+
+        boolean first = true;
+        for (String columnName : linkTableIdColumnNames) {
+            if (first) {
+                ds = ds.withColumn(idColumnName, col(columnName));
+                first = false;
+            } else {
+                ds = ds.withColumn(idColumnName, concat(col(idColumnName), lit("|"), col(columnName)));
+            }
+        }
+
+        updateSatTable(session, ds, idColumnName, hashKeyColumnName, satelliteTableName, recordSource);
+
     }
 
     public static void refreshPIT(SparkSession session, String[] satelliteNames, String hashKeyColumnName, String pitTableName) {

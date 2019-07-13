@@ -13,6 +13,7 @@ public class CustomerBusinessVault {
         Create business vault tables related to customer
 
         1. updates sat_customer_primary email with most recently loaded primary email per customer
+        2. updates customer point in time record
         * */
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
