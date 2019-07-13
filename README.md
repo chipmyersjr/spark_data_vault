@@ -98,7 +98,21 @@
 * customer_hash_key
 * email_hash_key
 
+**link_cart_product:**
+* cart_product_hash_key
+* cart_hash_key
+* product_hash_key
+* created_at
+* record_source
 
+**sat_cart_product:** 
+* cart_product_hash_key
+* loaded_at
+* record_source
+* quantity
+* added_at
+* removed_at
+* invoice_created_at
 
 # business data vault:
 
@@ -114,3 +128,12 @@
 * loaded_at
 * sat_customer_collection_loaded_at
 * sat_customer_primary_email_loaded_at
+
+**sat_cart_adds_and_drops:**
+(parses cart events and classifies them as either user adding a product or user dropping a product)
+* cart_product_hash_key
+* loaded_at
+* record_source
+* quantity_added
+* quantity_dropped
+* event_time
