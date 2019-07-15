@@ -22,7 +22,7 @@ import static org.apache.spark.sql.functions.*;
 
 public class Utils {
 
-    private static final String outPath = "out/"; //"s3n://chip-data-vault/raw-data-vault/";
+    private static final String outPath = "s3n://chip-data-vault/data-vault/";
 
     public static void updateHubTable(SparkSession session, Dataset<Row> newIdsDataset, String hubTableName
                                       , String idColumnName, String businessKeyColumnName, String recordSource
@@ -96,10 +96,10 @@ public class Utils {
 
         for (String columnName : columnNames) {
             if (first) {
-                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName), lit(" ")));
+                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName).cast("string"), lit(" ")));
                 first = false;
             } else {
-                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName), lit(" "))));
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName).cast("string"), lit(" "))));
             }
         }
 
@@ -241,6 +241,8 @@ public class Utils {
         pitTableName: table name to be given to the created point in time table
         * */
 
+        String pit_dir = outPath + pitTableName;
+
         session.read().parquet( "out/" + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
         Dataset<Row> loadDates = session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + satelliteNames[0]);
 
@@ -274,7 +276,7 @@ public class Utils {
         }
 
         loadDates.registerTempTable("load_dates");
-        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet("out/" + pitTableName + "/");
+        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet(pit_dir + "/");
     }
 
     public static Dataset<Row> getDataSetFromKinesisFirehouseS3Format(SparkSession session, JavaSparkContext sc, String filePath) {
