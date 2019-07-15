@@ -3,6 +3,8 @@ package com.dataVault.customer;
 import com.dataVault.commons.Utils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -17,11 +19,20 @@ public class CustomerBusinessVault {
         * */
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
-        SparkSession session = SparkSession.builder().appName("customerBusinessVault").master("local[1]").getOrCreate();
+        SparkConf conf = new SparkConf().setAppName("customerCollectionSC")
+                .setMaster("local[3]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
 
-        session.read().parquet( "out/hub_customer/*/*/*/*/*/*/").registerTempTable("hub_customer");
-        session.read().parquet( "out/sat_email/*/*/*/*/*/*/").registerTempTable("sat_email");
-        session.read().parquet( "out/link_customer_email/*/*/*/*/*/*/").registerTempTable("link_customer_email");
+        SparkSession session = SparkSession.builder()
+                .appName("customerCollection")
+                .master("local[1]")
+                .config("fs.s3n.awsAccessKeyId", System.getenv("AWS_ACCESS_KEY_ID"))
+                .config("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_KEY"))
+                .getOrCreate();
+
+        session.read().parquet( "s3n://chip-data-vault/data-vault/hub_customer/*/*/*/*/*/*/").registerTempTable("hub_customer");
+        session.read().parquet( "s3n://chip-data-vault/data-vault/sat_email/*/*/*/*/*/*/").registerTempTable("sat_email");
+        session.read().parquet( "s3n://chip-data-vault/data-vault/link_customer_email/*/*/*/*/*/*/").registerTempTable("link_customer_email");
 
         // most recently loaded primary email per customer
         String query = "SELECT c.customer_internal_application_id, a.email AS primary_email FROM " +
@@ -33,8 +44,6 @@ public class CustomerBusinessVault {
                        "WHERE a.row_num = 1";
 
         Dataset<Row> sat_customer_primary_email_ds = session.sql(query);
-
-        sat_customer_primary_email_ds.show(100);
 
         Utils.updateSatTable(session, sat_customer_primary_email_ds, "customer_internal_application_id", "customer_hash_key"
                 , "sat_customer_primary_email", "sat_email");

@@ -1,5 +1,12 @@
 package com.dataVault.commons;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -15,7 +22,7 @@ import static org.apache.spark.sql.functions.*;
 
 public class Utils {
 
-    private static final String outPath = "out/"; //"s3n://chip-data-vault/raw-data-vault/";
+    private static final String outPath = "s3n://chip-data-vault/data-vault/";
 
     public static void updateHubTable(SparkSession session, Dataset<Row> newIdsDataset, String hubTableName
                                       , String idColumnName, String businessKeyColumnName, String recordSource
@@ -89,10 +96,10 @@ public class Utils {
 
         for (String columnName : columnNames) {
             if (first) {
-                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName), lit(" ")));
+                ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName).cast("string"), lit(" ")));
                 first = false;
             } else {
-                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName), lit(" "))));
+                ds = ds.withColumn(hashDiffColumnName, concat(col(hashDiffColumnName), lit("|"), coalesce(col(columnName).cast("string"), lit(" "))));
             }
         }
 
@@ -234,6 +241,8 @@ public class Utils {
         pitTableName: table name to be given to the created point in time table
         * */
 
+        String pit_dir = outPath + pitTableName;
+
         session.read().parquet( "out/" + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
         Dataset<Row> loadDates = session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + satelliteNames[0]);
 
@@ -267,9 +276,33 @@ public class Utils {
         }
 
         loadDates.registerTempTable("load_dates");
-        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet("out/" + pitTableName + "/");
+        session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet(pit_dir + "/");
     }
 
+    public static Dataset<Row> getDataSetFromKinesisFirehouseS3Format(SparkSession session, JavaSparkContext sc, String filePath) {
+        /*
+        parses S3 files produced by Kinesis Firehouse and returns a spark dataset
+
+        session: SparkSession object to perform operations
+        sc: SparkContext object to perform operations
+        filePath: s3 location of file
+         */
+        Configuration hadoopConf = sc.hadoopConfiguration();
+
+        hadoopConf.set("fs.s3n.awsAccessKeyId", System.getenv("AWS_ACCESS_KEY_ID"));
+        hadoopConf.set("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_KEY"));
+
+        JavaPairRDD<String, String> PairRDD = sc.wholeTextFiles(filePath);
+        JavaRDD<String> RDD = PairRDD.map(x -> x._2);
+        String s3_file = PairRDD.map(x -> x._1).collect().get(0);
+
+        JavaRDD validJsonRDD = RDD.flatMap(x -> Arrays.asList(x.split("\n")).iterator());
+
+        Dataset<Row> result = session.read().option("wholeFile", true).option("mode", "PERMISSIVE").json(validJsonRDD).withColumn("s3_location", lit(s3_file));
+
+        return result;
+
+    }
 
     private static String getMd5Hash(String business_key) throws Exception {
         /*
