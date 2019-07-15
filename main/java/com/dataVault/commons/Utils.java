@@ -1,5 +1,12 @@
 package com.dataVault.commons;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -270,6 +277,30 @@ public class Utils {
         session.sql(selectClause.append(fromClause).toString()).write().mode("overwrite").parquet("out/" + pitTableName + "/");
     }
 
+    public static Dataset<Row> getDataSetFromKinesisFirehouseS3Format(SparkSession session, JavaSparkContext sc, String filePath) {
+        /*
+        parses S3 files produced by Kinesis Firehouse and returns a spark dataset
+
+        session: SparkSession object to perform operations
+        sc: SparkContext object to perform operations
+        filePath: s3 location of file
+         */
+        Configuration hadoopConf = sc.hadoopConfiguration();
+
+        hadoopConf.set("fs.s3n.awsAccessKeyId", System.getenv("AWS_ACCESS_KEY_ID"));
+        hadoopConf.set("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_KEY"));
+
+        JavaPairRDD<String, String> PairRDD = sc.wholeTextFiles(filePath);
+        JavaRDD<String> RDD = PairRDD.map(x -> x._2);
+        String s3_file = PairRDD.map(x -> x._1).collect().get(0);
+
+        JavaRDD validJsonRDD = RDD.flatMap(x -> Arrays.asList(x.split("\n")).iterator());
+
+        Dataset<Row> result = session.read().option("wholeFile", true).option("mode", "PERMISSIVE").json(validJsonRDD).withColumn("s3_location", lit(s3_file));
+
+        return result;
+
+    }
 
     private static String getMd5Hash(String business_key) throws Exception {
         /*
