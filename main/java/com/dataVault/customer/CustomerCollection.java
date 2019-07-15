@@ -2,6 +2,8 @@ package com.dataVault.customer;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -19,11 +21,22 @@ public class CustomerCollection {
     * */
     public static void main(String[] args) {
 
+        String filePath = "s3n://flask-app-88/2019/07/15/*/*";
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
-        SparkSession session = SparkSession.builder().appName("customerCollection").master("local[1]").getOrCreate();
 
-        Dataset<Row> customers = session.read().json("in/customer_collection.json");
+        SparkConf conf = new SparkConf().setAppName("customerCollectionSC")
+                .setMaster("local[3]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
+        SparkSession session = SparkSession.builder()
+                .appName("customerCollection")
+                .master("local[1]")
+                .config("fs.s3n.awsAccessKeyId", System.getenv("AWS_ACCESS_KEY_ID"))
+                .config("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_KEY"))
+                .getOrCreate();
+
+        Dataset<Row> customers = Utils.getDataSetFromKinesisFirehouseS3Format(session, sc, filePath);
 
         Dataset<Row> distinct_customers = customers.select("_id").distinct().filter("_id is not null");
 
