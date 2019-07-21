@@ -107,7 +107,8 @@ public class Utils {
 
         ds = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
                 .withColumn("loaded_at", current_timestamp())
-                .withColumn("record_source", lit(recordSource));
+                .withColumn("record_source", lit(recordSource))
+                .withColumn(hashDiffColumnName, callUDF("getMd5Hash", col(hashDiffColumnName)));
 
         File dir = new File(sat_dir);
 
