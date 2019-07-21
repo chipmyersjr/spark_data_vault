@@ -94,6 +94,8 @@ public class Utils {
         String [] columnNames = ds.columns();
         Arrays.sort(columnNames);
 
+        ds = ds.distinct();
+
         for (String columnName : columnNames) {
             if (first) {
                 ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName).cast("string"), lit(" ")));
