@@ -3,6 +3,8 @@ package com.dataVault.product;
 import com.dataVault.commons.Utils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -16,11 +18,21 @@ public class ProductCollection {
         2. adds new records to the satellite table
          */
 
+        String filePath = "s3n://flask-app-88/product/2019/07/21/*/*";
+
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
+        SparkConf conf = new SparkConf().setAppName("customerCollectionSC")
+                .setMaster("local[3]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
         SparkSession session = SparkSession.builder().appName("productCollection").master("local[1]").getOrCreate();
 
-        Dataset<Row> products = session.read().json("in/product_collection.json"); //"s3n://chip-data-vault/in/product_collection.json"
+        Dataset<Row> products = Utils.getDataSetFromKinesisFirehouseS3Format(session, sc, filePath);
+
+        String[] unixColumns = new String[] {"created_at", "updated_at"};
+
+        products = Utils.convertUnixTime(session, products, unixColumns);
 
         Dataset<Row> distinct_products = products.select("_id").distinct().filter("_id is not null");
 
