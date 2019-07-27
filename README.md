@@ -1,4 +1,9 @@
 # spark_data_vault
+This is a small example of building a Data Vault 2.0 style data warehouse using Spark. Its aim is to make a data mart for add and drops for a customer cart feature of an ecommerce style application.  The data comes from another one of my projects. A flask api with MongoDB as a data store.  All MongoDB change events are sent to Kinesis Data Stream then Kinesis Firehose is used to land all the events in an S3 bucket.  This is done by definining a post-save event through Flask's ORM. (https://github.com/chipmyersjr/flask_rest_api/tree/master/kafka_server)
+
+All data vault table types (satellites, hubs, links, point-in-time...) are encapsulated into methods in a Utils class (https://github.com/chipmyersjr/spark_data_vault/blob/master/main/java/com/dataVault/commons/Utils.java). There is a seperate spark job for each data source which converts that data source to a spark data frame and passes it to the necessary functions to create the data vault tables.  
+
+All data vault tables are stored in S3 in parquet format. AWS Glue crawler was used to create the data catalog for AWS Athena.  The information mart (dimensional model) is implemented as Athena views (https://github.com/chipmyersjr/spark_data_vault/blob/master/athena_view.sql)
 
 
 
