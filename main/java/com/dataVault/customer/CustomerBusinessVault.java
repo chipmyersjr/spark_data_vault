@@ -30,9 +30,9 @@ public class CustomerBusinessVault {
                 .config("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_KEY"))
                 .getOrCreate();
 
-        session.read().parquet( "s3n://chip-data-vault/data-vault/hub_customer/*/*/*/*/*/*/").registerTempTable("hub_customer");
-        session.read().parquet( "s3n://chip-data-vault/data-vault/sat_email/*/*/*/*/*/*/").registerTempTable("sat_email");
-        session.read().parquet( "s3n://chip-data-vault/data-vault/link_customer_email/*/*/*/*/*/*/").registerTempTable("link_customer_email");
+        session.read().parquet( "s3n://chip-data-vault-west2/data-vault/hub_customer/*/*/*/*/*/*/").registerTempTable("hub_customer");
+        session.read().parquet( "s3n://chip-data-vault-west2/data-vault/sat_email/*/*/*/*/*/*/").registerTempTable("sat_email");
+        session.read().parquet( "s3n://chip-data-vault-west2/data-vault/link_customer_email/*/*/*/*/*/*/").registerTempTable("link_customer_email");
 
         // most recently loaded primary email per customer
         String query = "SELECT c.customer_internal_application_id, a.email AS primary_email FROM " +

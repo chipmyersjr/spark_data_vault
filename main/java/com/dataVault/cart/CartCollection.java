@@ -3,6 +3,8 @@ package com.dataVault.cart;
 import com.dataVault.commons.Utils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -10,11 +12,22 @@ import org.apache.spark.sql.SparkSession;
 public class CartCollection {
 
     public static void main(String[] args) {
+        String filePath = "s3n://flask-app-88/cart/2019/07/*/*/*";
+
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
+
+        SparkConf conf = new SparkConf().setAppName("cartCollectionSC")
+                .setMaster("local[3]");
+        JavaSparkContext sc = new JavaSparkContext(conf);
+
         SparkSession session = SparkSession.builder().appName("cartCollection").master("local[1]").getOrCreate();
 
-        Dataset<Row> carts = session.read().json("in/cart_collection.json");
+        Dataset<Row> carts = Utils.getDataSetFromKinesisFirehouseS3Format(session, sc, filePath);
+
+        String[] unixColumns = new String[] {"created_at", "last_item_added_at", "invoice_created_at"};
+
+        carts = Utils.convertUnixTime(session, carts, unixColumns);
 
         Dataset<Row> distinct_carts = carts.select("_id").distinct().filter("_id is not null");
 

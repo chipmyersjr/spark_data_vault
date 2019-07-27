@@ -21,7 +21,7 @@ public class CustomerCollection {
     * */
     public static void main(String[] args) {
 
-        String filePath = "s3n://flask-app-88/2019/07/15/*/*";
+        String filePath = "s3n://flask-app-88/customer/2019/07/*/*/*";
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
 
@@ -37,6 +37,10 @@ public class CustomerCollection {
                 .getOrCreate();
 
         Dataset<Row> customers = Utils.getDataSetFromKinesisFirehouseS3Format(session, sc, filePath);
+
+        String[] unixColumns = new String[] {"last_seen_date", "confirmed_on", "created_at", "log_out_expires_at", "confirmation_token_expires_at", "updated_at"};
+
+        customers = Utils.convertUnixTime(session, customers, unixColumns);
 
         Dataset<Row> distinct_customers = customers.select("_id").distinct().filter("_id is not null");
 
@@ -62,6 +66,10 @@ public class CustomerCollection {
                 ,  "email_hash_key");
 
         Dataset<Row> sat_email_ds = emails.drop("customer_id");
+
+        String[] emailUnixColumns = new String[] {"created_at"};
+
+        sat_email_ds = Utils.convertUnixTime(session, sat_email_ds, emailUnixColumns);
 
         Utils.updateSatTable(session, sat_email_ds, "_id", "email_hash_key"
                 , "sat_email", "app_customer_collection");

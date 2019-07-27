@@ -22,7 +22,7 @@ import static org.apache.spark.sql.functions.*;
 
 public class Utils {
 
-    private static final String outPath = "s3n://chip-data-vault/data-vault/";
+    private static final String outPath = "s3n://chip-data-vault-west2/data-vault/";
 
     public static void updateHubTable(SparkSession session, Dataset<Row> newIdsDataset, String hubTableName
                                       , String idColumnName, String businessKeyColumnName, String recordSource
@@ -94,6 +94,8 @@ public class Utils {
         String [] columnNames = ds.columns();
         Arrays.sort(columnNames);
 
+        ds = ds.distinct();
+
         for (String columnName : columnNames) {
             if (first) {
                 ds = ds.withColumn(hashDiffColumnName, coalesce(col(columnName).cast("string"), lit(" ")));
@@ -107,7 +109,8 @@ public class Utils {
 
         ds = ds.withColumn(hashKeyColumnName, callUDF("getMd5Hash", col(idColumnName)))
                 .withColumn("loaded_at", current_timestamp())
-                .withColumn("record_source", lit(recordSource));
+                .withColumn("record_source", lit(recordSource))
+                .withColumn(hashDiffColumnName, callUDF("getMd5Hash", col(hashDiffColumnName)));
 
         File dir = new File(sat_dir);
 
@@ -302,6 +305,26 @@ public class Utils {
 
         return result;
 
+    }
+
+    public static Dataset<Row> convertUnixTime(SparkSession session, Dataset<Row> ds, String[] columns){
+        /*
+        convert unix timestamps into regular timestamps
+
+        session: SparkSession object to perform operations
+        ds: data set to be converted
+        columns: array of column names to be converted
+         */
+        ds.registerTempTable("unix_ds");
+        for (String column : columns) {
+            if (Arrays.asList(ds.columns()).contains(column)){
+                ds = session.sql(String.format("SELECT *, to_date(FROM_UNIXTIME(%s['$date'] - 1562173938000, 'YYYY-MM-dd HH:mm:ss'))  as `%s_ts` FROM unix_ds", column, column));
+                ds = ds.drop(column);
+                ds.registerTempTable("unix_ds");
+            }
+        }
+
+        return ds;
     }
 
     private static String getMd5Hash(String business_key) throws Exception {
