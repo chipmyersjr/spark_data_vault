@@ -21,7 +21,7 @@ public class CustomerCollection {
     * */
     public static void main(String[] args) {
 
-        String filePath = "s3n://flask-app-88/customer/2019/07/21/*/*";
+        String filePath = "s3n://flask-app-88/customer/2019/07/*/*/*";
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
 

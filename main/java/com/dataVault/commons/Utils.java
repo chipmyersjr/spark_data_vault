@@ -317,9 +317,11 @@ public class Utils {
          */
         ds.registerTempTable("unix_ds");
         for (String column : columns) {
-            ds = session.sql(String.format("SELECT *, to_date(FROM_UNIXTIME(%s['$date'] - 1562173938000, 'YYYY-MM-dd HH:mm:ss'))  as `%s_ts` FROM unix_ds", column, column));
-            ds = ds.drop(column);
-            ds.registerTempTable("unix_ds");
+            if (Arrays.asList(ds.columns()).contains(column)){
+                ds = session.sql(String.format("SELECT *, to_date(FROM_UNIXTIME(%s['$date'] - 1562173938000, 'YYYY-MM-dd HH:mm:ss'))  as `%s_ts` FROM unix_ds", column, column));
+                ds = ds.drop(column);
+                ds.registerTempTable("unix_ds");
+            }
         }
 
         return ds;

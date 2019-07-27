@@ -18,11 +18,11 @@ public class ProductCollection {
         2. adds new records to the satellite table
          */
 
-        String filePath = "s3n://flask-app-88/product/2019/07/21/*/*";
+        String filePath = "s3n://flask-app-88/product/2019/07/*/*/*";
 
         System.setProperty("hadoop.home.dir", "C:/hadoop");
         Logger.getLogger("org").setLevel(Level.ERROR);
-        SparkConf conf = new SparkConf().setAppName("customerCollectionSC")
+        SparkConf conf = new SparkConf().setAppName("productCollectionSC")
                 .setMaster("local[3]");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
