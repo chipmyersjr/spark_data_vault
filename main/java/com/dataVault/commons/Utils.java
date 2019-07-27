@@ -246,7 +246,7 @@ public class Utils {
 
         String pit_dir = outPath + pitTableName;
 
-        session.read().parquet( "out/" + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
+        session.read().parquet( outPath + satelliteNames[0] + "/*/*/*/*/*/*/").registerTempTable(satelliteNames[0]);
         Dataset<Row> loadDates = session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + satelliteNames[0]);
 
         StringBuilder selectClause = new StringBuilder("SELECT ");
@@ -274,7 +274,7 @@ public class Utils {
                 first = false;
                 continue;
             }
-            session.read().parquet( "out/" + name + "/*/*/*/*/*/*/").registerTempTable(name);
+            session.read().parquet( outPath + name + "/*/*/*/*/*/*/").registerTempTable(name);
             loadDates = loadDates.union(session.sql("SELECT loaded_at, " + hashKeyColumnName + " FROM " + name));
         }
 

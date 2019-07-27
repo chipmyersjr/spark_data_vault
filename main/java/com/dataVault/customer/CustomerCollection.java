@@ -38,7 +38,8 @@ public class CustomerCollection {
 
         Dataset<Row> customers = Utils.getDataSetFromKinesisFirehouseS3Format(session, sc, filePath);
 
-        String[] unixColumns = new String[] {"last_seen_date", "confirmed_on", "created_at", "log_out_expires_at", "confirmation_token_expires_at", "updated_at"};
+        String[] unixColumns = new String[] {"last_seen_date", "confirmed_on", "created_at", "log_out_expires_at", "confirmation_token_expires_at", "updated_at"
+                                            , "last_cart_activity_at", "last_cart_created_at"};
 
         customers = Utils.convertUnixTime(session, customers, unixColumns);
 
