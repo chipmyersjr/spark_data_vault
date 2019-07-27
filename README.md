@@ -137,3 +137,20 @@
 * quantity_added
 * quantity_dropped
 * event_time
+
+
+# information mart
+
+**dim_product:**
+* product_hash_key
+* valid_from
+* valid_to
+* title
+* product_type
+* description
+* vendor
+* store
+* inventory
+* sale_price_in_cents
+* created_at_ts
+* updated_at_ts
