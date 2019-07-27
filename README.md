@@ -154,3 +154,24 @@
 * sale_price_in_cents
 * created_at_ts
 * updated_at_ts
+
+
+**dim_customer_history:**
+* customer_hash_key
+* valid_from
+* valid_to
+* primary_email
+* customer_internal_application_id
+* currency
+* first_name
+* last_name
+* total_spent
+* last_order_date
+* last_cart_activity_at
+* last_cart_created_at
+* log_out_expires_at
+* confirmed_on
+* confirmation_token_expires_at
+* created_at
+* updated_at
+
